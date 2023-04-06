@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title></title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+  </head>
+  <body>
+    <canvas id="canvas" height="650"></canvas>
+    <script>
+      const mapSize = {};
+      const mapJSON = [{}];
+
+      // Default settings of grid
+      const defaultGridOptions = {
+        radius: 50,
+        sides: 6,
+        gap: 5, // Padding each hexagon
+        lineWidth: 1,
+        backgroundColor: '#ccc',
+        textColor: 'black',
+        strokeStyle: 'black',
+        titleFontSize: '25px',
+        fontSize: '14px',
+        font: 'arial',
+        textAlign: 'center',
+        marginTop: 150,
+        marginLeft: 0,
+        titleLevel: 'Sample hexagon grid.', 
+      };
+
+      // Default hide hexagon at position x per y
+      const defaultHidePosition = {
+        1: [1, 2],
+        2: [],
+        3: [1],
+        4: [1, 2]
+      }
+
+      const isDraw = (w, h, gx, gy) => {
+        let isCanDraw;
+
+        switch(gx) {
+          case w:
+            isCanDraw = gy == 2;
+            break;
+          case w - 1:
+            if (gx > 2) isCanDraw = gy == 2 || gy == 3;
+            break;
+          default:
+            if (gy == 4 && gx > 2 && gx < w - 1) isCanDraw = gx % 2 == 0;
+            else isCanDraw = defaultHidePosition[gy]?.indexOf(gx) == -1;
+        }
+
+        return isCanDraw;
+      }
+
+      // Draw grid hexagon
+      const drawGrid = (ctx, x, y, w, h, options = {}) => {
+        const opts = { ...defaultGridOptions, ...options };
+        const points = createHexagon(opts);
+        const positionXYDrew = {};
+
+        ctx.font = `${opts.titleFontSize} ${opts.font}`;
+        ctx.fillText(opts.titleLevel, 40, opts.marginTop - 90);
+
+        for (let gy = y; gy < y + h; gy++) { // for by row
+          for (let gx = x; gx < x + w; gx++) { // for by column of row
+            const origin = gridToPixel(gx, gy, opts);
+
+            if (gy == 1) {
+              ctx.font = `${opts.fontSize} ${opts.font}`;
+              ctx.fillText(gx.toString(), origin.x, opts.marginTop);
+            }
+
+            if (isDraw(w, h, gx, gy)) {
+              typeof positionXYDrew[gx] === 'undefined' ? positionXYDrew[gx] = 1 : positionXYDrew[gx]++;
+
+              optsMerged = { gx, gy, gyDrew: positionXYDrew[gx], ...opts }
+              drawHexagon(ctx, origin, points, optsMerged);
+            }
+          }
+        }
+
+      };
+
+      const toPoint = (x, y) => ({ x, y });
+
+      const gridToPixel = (gridX, gridY, opts) => {
+        const m = gridMeasurements(opts);
+
+        return toPoint(
+          Math.floor(gridX * m.gridSpaceX + opts.marginLeft),
+          Math.floor(gridY * m.gridSpaceY + opts.marginTop + (gridX % 2 ? m.gridOffsetY : 0))
+        );
+      };
+
+      // Draw a hexagon
+      const drawHexagon = (ctx, origin, points, opts) => {
+        ctx.strokeStyle = opts.strokeStyle;
+        ctx.save();
+        ctx.translate(origin.x, origin.y);
+        hexagonPath(ctx, points);
+        ctx.restore();
+
+        if (opts.lineWidth) ctx.lineWidth = opts.lineWidth;
+        if (opts.strokeStyle) ctx.stroke();
+
+        ctx.fillStyle = opts.backgroundColor;
+        ctx.fill();
+        ctx.fillStyle = opts.textColor;
+        ctx.textAlign = opts.textAlign;
+        ctx.textBaseline = 'middle';
+        ctx.font = `${opts.fontSize} ${opts.font}`;
+
+        const fixGridSetting = mapJSON.find(f => f.position_x == opts.gx && f.position_y == opts.gyDrew);
+
+        if (fixGridSetting) {
+          const {
+            trail_event_grid_id: trailEventGridId,
+            trail_grid_pirates_arena_type: trailGridPiratesArenaType
+          } = fixGridSetting;
+          const textDisplay = (trailEventGridId ? trailEventGridId : trailGridPiratesArenaType) || ''
+
+          ctx.fillStyle = opts.textColor;
+          ctx.font = `${opts.fontSize} ${opts.font}`;
+          ctx.fillText(textDisplay, origin.x, origin.y);
+        } else if (opts.gy == 2 & opts.gx == 1) {
+          ctx.fillText('Start', origin.x, origin.y)
+        }
+      };
+
+      const TAU = 2 * Math.PI;
+
+      // Points array for draw hexagon
+      const createHexagon = (opts, points = []) => {
+        const
+          { gap, radius, sides } = opts,
+          size = radius - gap,
+          step = TAU / sides;
+
+        for (let i = 0; i < sides; i++) {
+          const angle = step * i;
+
+          points.push(toPoint(size * Math.cos(angle), size * Math.sin(angle)));
+        }
+        return points;
+      };
+
+      // Calculate the parameters of the hexagon 
+      const gridMeasurements = (opts) => {
+        const
+          { gap, radius, sides } = opts,
+          diameter = radius * 2,
+          edgeLength = Math.sin(Math.PI / sides) * diameter,
+          gridSpaceX = radius * 2 - edgeLength * 0.5,
+          gridSpaceY = Math.cos(Math.PI / sides) * diameter,
+          gridOffsetY = gridSpaceY * 0.5;
+
+        return {
+          diameter,
+          edgeLength,
+          gridSpaceX,
+          gridSpaceY,
+          gridOffsetY
+        };
+      };
+
+      // Drawing path. A path is a list of points
+      const hexagonPath = (ctx, points = []) => {
+        const [{ x: startX, y: startY }] = points;
+
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        points.forEach(({ x, y }) => { ctx.lineTo(x, y); });
+        ctx.closePath();
+      };
+
+      // Minimum width of canvas is 9 columns
+      const caculatorCanvasWidth = (w) => {
+        const radius = defaultGridOptions.radius;
+        let minMapSizeWidth = w;
+
+        if (w < 9) {
+          minMapSizeWidth = 9;
+          defaultGridOptions.marginLeft = radius * 1.5 * (9 - w) * 0.5
+        }
+
+        return radius * 1.5 * (minMapSizeWidth + 1);
+      }
+
+      const initMap = () => {
+        const canvas = document.querySelector('#canvas');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = caculatorCanvasWidth(mapSize.width);
+        drawGrid(ctx, 1, 1, mapSize.width, mapSize.height);
+      };
+
+      initMap();
+    </script>
+  </body>
+</html>
