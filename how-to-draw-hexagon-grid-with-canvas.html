@@ -8,8 +8,12 @@
   <body>
     <canvas id="canvas" height="650"></canvas>
     <script>
-      const mapSize = {};
-      const mapJSON = [{}];
+      const mapSize = {height: 4, width: 9};
+      const mapJSON = [
+        {position_x: 5, position_y: 2, textDisplay: 'ManhLD' },
+        {position_x: 3, position_y: 2, textDisplay: '10' },
+        {position_x: 7, position_y: 3, textDisplay: '11' },
+      ];
 
       // Default settings of grid
       const defaultGridOptions = {
@@ -116,11 +120,7 @@
         const fixGridSetting = mapJSON.find(f => f.position_x == opts.gx && f.position_y == opts.gyDrew);
 
         if (fixGridSetting) {
-          const {
-            trail_event_grid_id: trailEventGridId,
-            trail_grid_pirates_arena_type: trailGridPiratesArenaType
-          } = fixGridSetting;
-          const textDisplay = (trailEventGridId ? trailEventGridId : trailGridPiratesArenaType) || ''
+          const { textDisplay } = fixGridSetting;
 
           ctx.fillStyle = opts.textColor;
           ctx.font = `${opts.fontSize} ${opts.font}`;
